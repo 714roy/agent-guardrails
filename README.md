@@ -22,7 +22,7 @@ It works as a **Hermes Agent plugin** with three hooks:
 
 ```bash
 # 1. Install the engine
-pip install agentguard
+pip install https://github.com/714roy/agent-guardrails/releases/download/v1.0.0/agentguard-1.0.0-py3-none-any.whl
 
 # 2. Link the Hermes plugin
 mkdir -p ~/.hermes/plugins/hermes-enforcer

@@ -6,7 +6,7 @@ to Hermes Agent's hook system.
 
 Usage:
   1. Copy this directory to ~/.hermes/plugins/hermes-enforcer/
-  2. Ensure agentguard is installed: pip install agentguard
+  2. Ensure agentguard is installed: pip install https://github.com/714roy/agent-guardrails/releases/download/v1.0.0/agentguard-1.0.0-py3-none-any.whl
   3. Restart Hermes Gateway
 
   Or use the hermes-plugin/install.sh script for automated setup.

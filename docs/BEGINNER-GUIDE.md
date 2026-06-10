@@ -33,7 +33,7 @@
 打开终端，复制粘贴这行：
 
 ```bash
-pip install agentguard
+pip install https://github.com/714roy/agent-guardrails/releases/download/v1.0.0/agentguard-1.0.0-py3-none-any.whl
 ```
 
 等它跑完，显示 `Successfully installed agentguard` 就行了。

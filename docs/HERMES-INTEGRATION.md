@@ -18,7 +18,7 @@ AgentGuard registers three hooks into Hermes Agent's pipeline:
 ### 1. Install the engine
 
 ```bash
-pip install agentguard
+pip install https://github.com/714roy/agent-guardrails/releases/download/v1.0.0/agentguard-1.0.0-py3-none-any.whl
 ```
 
 Or install from source:
