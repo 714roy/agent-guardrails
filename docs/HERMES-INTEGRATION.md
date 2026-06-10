@@ -33,14 +33,14 @@ pip install -e .
 
 ```bash
 # Create the plugin directory
-mkdir -p ~/.hermes/plugins/hermes-enforcer
+mkdir -p ~/.hermes/plugins/agent-guardrails
 
 # Copy plugin files
-cp agent-guardrails/hermes-plugin/* ~/.hermes/plugins/hermes-enforcer/
+cp agent-guardrails/hermes-plugin/* ~/.hermes/plugins/agent-guardrails/
 
 # Or symlink for easy updates
-ln -s $(pwd)/agent-guardrails/hermes-plugin/__init__.py ~/.hermes/plugins/hermes-enforcer/__init__.py
-ln -s $(pwd)/agent-guardrails/hermes-plugin/plugin.yaml ~/.hermes/plugins/hermes-enforcer/plugin.yaml
+ln -s $(pwd)/agent-guardrails/hermes-plugin/__init__.py ~/.hermes/plugins/agent-guardrails/__init__.py
+ln -s $(pwd)/agent-guardrails/hermes-plugin/plugin.yaml ~/.hermes/plugins/agent-guardrails/plugin.yaml
 ```
 
 ### 3. Create the rules file
@@ -48,7 +48,7 @@ ln -s $(pwd)/agent-guardrails/hermes-plugin/plugin.yaml ~/.hermes/plugins/hermes
 Copy the example rules to Hermes workspace:
 
 ```bash
-cp agent-guardrails/config/enforcer-rules.yaml.example ~/.hermes/workspace/hermes-enforcer-rules.md
+cp agent-guardrails/config/enforcer-rules.yaml.example ~/.hermes/workspace/agent-guardrails-rules.md
 ```
 
 Or use the `rules.md` format (YAML frontmatter):
@@ -69,7 +69,7 @@ rules:
 ---
 ```
 
-> **File path**: The plugin reads `~/.hermes/workspace/hermes-enforcer-rules.md` by default.
+> **File path**: The plugin reads `~/.hermes/workspace/agent-guardrails-rules.md` by default.
 > Override with the `AGENTGUARD_RULES` environment variable.
 
 ### 4. Enable the plugin in Hermes config
@@ -79,7 +79,7 @@ Edit `~/.hermes/config.yaml`:
 ```yaml
 plugins:
   enabled:
-    - hermes-enforcer
+    - agent-guardrails
 ```
 
 Or if using a custom plugins directory:
@@ -88,7 +88,7 @@ Or if using a custom plugins directory:
 plugins:
   dir: ~/.hermes/plugins
   enabled:
-    - hermes-enforcer
+    - agent-guardrails
 ```
 
 ### 5. Restart Gateway
@@ -110,7 +110,7 @@ journalctl --user -u hermes-gateway --since "5 min ago" | grep agentguard
 
 | Variable | Default | Purpose |
 |:---------|:--------|:--------|
-| `AGENTGUARD_RULES` | `$HERMES_HOME/workspace/hermes-enforcer-rules.md` | Path to rules file |
+| `AGENTGUARD_RULES` | `$HERMES_HOME/workspace/agent-guardrails-rules.md` | Path to rules file |
 | `AGENTGUARD_DISABLE` | `0` | Set to `1` to completely disable enforcement |
 | `HERMES_HOME` | `~/.hermes` | Hermes Agent home directory |
 
@@ -153,7 +153,7 @@ result = on_pre_llm_call(
 ## Troubleshooting
 
 **Plugin doesn't load**
-- Check `~/.hermes/plugins/hermes-enforcer/` exists with both `__init__.py` and `plugin.yaml`
+- Check `~/.hermes/plugins/agent-guardrails/` exists with both `__init__.py` and `plugin.yaml`
 - Verify `agentguard` is installed: `pip show agentguard`
 - Check Gateway logs: `journalctl --user -u hermes-gateway -n 50 | grep -i agentguard`
 

@@ -1,4 +1,4 @@
-name: hermes-enforcer
+name: agent-guardrails
 version: "1.0.0"
 description: >
   AgentGuard behavior rule engine for Hermes Agent.

@@ -25,16 +25,16 @@ It works as a **Hermes Agent plugin** with three hooks:
 pip install https://github.com/714roy/agent-guardrails/releases/download/v1.0.0/agentguard-1.0.0-py3-none-any.whl
 
 # 2. Link the Hermes plugin
-mkdir -p ~/.hermes/plugins/hermes-enforcer
-cp hermes-plugin/* ~/.hermes/plugins/hermes-enforcer/
+mkdir -p ~/.hermes/plugins/agent-guardrails
+cp hermes-plugin/* ~/.hermes/plugins/agent-guardrails/
 
 # 3. Set up rules
-cp config/enforcer-rules.yaml.example ~/.hermes/workspace/hermes-enforcer-rules.md
+cp config/enforcer-rules.yaml.example ~/.hermes/workspace/agent-guardrails-rules.md
 
 # 4. Enable in Hermes config (~/.hermes/config.yaml)
 # plugins:
 #   enabled:
-#     - hermes-enforcer
+#     - agent-guardrails
 
 # 5. Restart
 systemctl --user restart hermes-gateway

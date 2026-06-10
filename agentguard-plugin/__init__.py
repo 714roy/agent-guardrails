@@ -5,7 +5,7 @@ This is a thin bridge that connects the AgentGuard rule engine
 to Hermes Agent's hook system.
 
 Usage:
-  1. Copy this directory to ~/.hermes/plugins/hermes-enforcer/
+  1. Copy this directory to ~/.hermes/plugins/agent-guardrails/
   2. Ensure agentguard is installed: pip install https://github.com/714roy/agent-guardrails/releases/download/v1.0.0/agentguard-1.0.0-py3-none-any.whl
   3. Restart Hermes Gateway
 

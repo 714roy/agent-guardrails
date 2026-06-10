@@ -49,10 +49,10 @@ python3 -c "from agentguard import load_rules; print('OK')"
 ### 第 2 步：创建插件目录
 
 ```bash
-mkdir -p ~/.hermes/plugins/hermes-enforcer
+mkdir -p ~/.hermes/plugins/agent-guardrails
 ```
 
-> 💡 这行命令的意思是：在 Hermes 的插件文件夹里，新建一个叫 `hermes-enforcer` 的文件夹。
+> 💡 这行命令的意思是：在 Hermes 的插件文件夹里，新建一个叫 `agent-guardrails` 的文件夹。
 
 ---
 
@@ -62,13 +62,13 @@ mkdir -p ~/.hermes/plugins/hermes-enforcer
 - https://github.com/714roy/agent-guardrails/blob/main/hermes-plugin/__init__.py
 - https://github.com/714roy/agent-guardrails/blob/main/hermes-plugin/plugin.yaml
 
-放到你刚创建的 `~/.hermes/plugins/hermes-enforcer/` 目录里。
+放到你刚创建的 `~/.hermes/plugins/agent-guardrails/` 目录里。
 
 > 💡 不会下载？点链接 → 点 Raw 按钮 → 右键另存为
 
 或者用命令行（如果你会的话）：
 ```bash
-cd ~/.hermes/plugins/hermes-enforcer
+cd ~/.hermes/plugins/agent-guardrails
 wget https://raw.githubusercontent.com/714roy/agent-guardrails/main/hermes-plugin/__init__.py
 wget https://raw.githubusercontent.com/714roy/agent-guardrails/main/hermes-plugin/plugin.yaml
 ```
@@ -77,7 +77,7 @@ wget https://raw.githubusercontent.com/714roy/agent-guardrails/main/hermes-plugi
 
 ### 第 4 步：创建规则文件
 
-复制粘贴这整段到一个新文件 `~/.hermes/workspace/hermes-enforcer-rules.md`：
+复制粘贴这整段到一个新文件 `~/.hermes/workspace/agent-guardrails-rules.md`：
 
 ```markdown
 ---
@@ -113,7 +113,7 @@ rules:
 ---
 ```
 
-> 💡 不会创建文件？用记事本/VSCode，把上面的内容粘贴进去，保存为 `hermes-enforcer-rules.md`，放到 `~/.hermes/workspace/` 目录。
+> 💡 不会创建文件？用记事本/VSCode，把上面的内容粘贴进去，保存为 `agent-guardrails-rules.md`，放到 `~/.hermes/workspace/` 目录。
 
 ---
 
@@ -124,7 +124,7 @@ rules:
 ```yaml
 plugins:
   enabled:
-    - hermes-enforcer
+    - agent-guardrails
 ```
 
 然后重启 Gateway：
@@ -165,7 +165,7 @@ journalctl --user -u hermes-gateway --since "1 min ago" | grep agentguard
 
 ## 怎么改规则
 
-规则文件在 `~/.hermes/workspace/hermes-enforcer-rules.md`。
+规则文件在 `~/.hermes/workspace/agent-guardrails-rules.md`。
 
 可以用记事本打开编辑。格式很简单：
 
@@ -194,7 +194,7 @@ journalctl --user -u hermes-gateway --since "1 min ago" | grep agentguard
 A: 在终端运行 `export AGENTGUARD_DISABLE=1`，然后重启 Gateway。
 
 **Q: 怎么永久删掉？**
-A: 删掉 `~/.hermes/plugins/hermes-enforcer/` 目录，然后从 `~/.hermes/config.yaml` 里去掉 `hermes-enforcer`，重启 Gateway。
+A: 删掉 `~/.hermes/plugins/agent-guardrails/` 目录，然后从 `~/.hermes/config.yaml` 里去掉 `agent-guardrails`，重启 Gateway。
 
 **Q: 规则不生效？**
 A: 检查文件是不是 `.md` 格式（不是 `.yaml`）。检查 `enabled: true` 有没有写。检查关键词有没有拼错。
