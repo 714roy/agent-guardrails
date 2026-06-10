@@ -67,7 +67,7 @@ routing:
       - "worldbuilding"
     skills:
       - creative-writing-core
-      - novel-workspace
+      - creative-writing-workspace
     notes: >
       Load core writing system + workspace management for structured output.
       Supports genre-specific guidance.
