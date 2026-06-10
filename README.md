@@ -1,127 +1,78 @@
 # AgentGuard
 
-> A rule-based behavior governance system for LLM agents.  
-> Not prompt engineering — system engineering for agent behavior.
+> **Tool-call level behavior governance for LLM agents.**
+> Built for [Hermes Agent](https://github.com/NousResearch/hermes-agent).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
+
+AgentGuard enforces behavior at the **tool-call layer** — not at the prompt/output
+layer like traditional guardrail solutions. When your agent tries to call a tool,
+AgentGuard checks: *Does this user message activate any rules? Are the prerequisites
+met?* If not, the tool call is blocked until requirements are satisfied.
+
+It works as a **Hermes Agent plugin** with three hooks:
+`pre_llm_call`, `pre_tool_call`, and `transform_llm_output`.
 
 ---
 
-## Why AgentGuard
-
-LLM agents are powerful but unpredictable. When given tools and autonomy, they can:
-
-- Execute dangerous shell commands without verification
-- Call tools in the wrong order or wrong context
-- Forget past decisions and repeat mistakes
-- Drift into unreliable behavior patterns over time
-
-Most existing guardrail solutions (Guardrails AI, LlamaGuard) work at the **prompt/output level** — they constrain what an agent says, not what it **does**.
-
-**AgentGuard** operates at the **tool-call level**: it governs agent behavior through a rule engine, domain router, and self-healing PID control loop. It doesn't tell the agent what to say — it enforces what it can do.
-
----
-
-## Architecture
-
-```
-┌──────────────────────────────────────────────────────────┐
-│                       AgentGuard                          │
-│                                                            │
-│  ┌─────────────┐  ┌──────────┐  ┌───────────────┐        │
-│  │  Enforcer    │  │  Router  │  │  Quality       │        │
-│  │  Rule Engine │◄─┤  Skill   │◄─┤  Gate (PID)   │        │
-│  │  (N rules)   │  │  Router  │  │  Closed Loop  │        │
-│  └──────┬──────┘  └────┬─────┘  └──────┬────────┘        │
-│         │              │     ↗         │                  │
-│         │              │  Feedback     │                  │
-│         │              │  Channel      │                  │
-│         ▼              ▼               ▼                  │
-│  ┌─────────────────────────────────────────────┐         │
-│  │         LLM Agent Behavior Layer             │         │
-│  │   Tool calls / Reasoning / Output / Memory   │         │
-│  └─────────────────────┬───────────────────────┘         │
-│                        │                                  │
-│                        ▼                                  │
-│  ┌─────────────────────────────────────────────┐         │
-│  │         Audit Trail                          │         │
-│  │   Logs: rule triggers / routing decisions    │         │
-│  └─────────────────────────────────────────────┘         │
-└──────────────────────────────────────────────────────────┘
-```
-
-### Core Components
-
-#### 1. Enforcer — Rule Engine
-
-A YAML-defined rule engine that intercepts, requires, or transforms agent behavior before it reaches system tools.
-
-- **Keyword triggers** + **condition matching** → decide when a rule applies
-- **Rule types**: hard block (`always_block`), tool requirement (`require_tools`), tool restriction (`only_block_tools`), output transformation (`transform`)
-- **Priority field** — resolves conflicts when multiple rules fire simultaneously
-- **Hot-reload** — rules update without restarting the agent
-
-```yaml
-rules:
-  - name: reasoning-force
-    priority: 10
-    triggers:
-      keywords: ["推理", "logic", "constraint"]
-    conditions:
-      require_tools:
-        - mcp_chiasmus_chiasmus_formalize
-    only_block_tools:
-      - terminal
-    block_message: "Please use formal verification tools for logic problems."
-```
-
-#### 2. Router — Domain Routing Table
-
-Maps natural language keywords to specialized skills/workflows, enabling context-aware routing without complex intent classification.
-
-- Keyword → Skill mapping (N+ domains)
-- Zero-config extension (add one row to add a new domain)
-- Cold-start fallback handler for unmapped inputs
-
-#### 3. Quality Gate — PID Closed Loop
-
-Applies control theory to agent behavior correction, inspired by the PID (Proportional–Integral–Derivative) controller:
-
-| Loop | Trigger | Action |
-|------|---------|--------|
-| **P** (Proportional) | Single error | Immediate output correction |
-| **I** (Integral) | 2+ same-type errors | Persist to rule/memory |
-| **D** (Derivative) | Accelerating errors | Trigger full audit + reset |
-
-Integrated with **Consilium** — a multi-model cross-validation system — as external audit.
-
-### Supporting Systems
-
-- **Audit Trail**: Every rule trigger, routing decision, and PID action is logged with full context for debugging and compliance
-- **Feedback Channel**: Router → PID and PID → Router signals enable continuous system evolution
-
----
-
-## Quick Start
+## Quick Start (Hermes Agent)
 
 ```bash
-# Clone the repository
-git clone https://github.com/<your-username>/agent-guardrails.git
-cd agent-guardrails
+# 1. Install the engine
+pip install agentguard
 
-# Set up the rule engine
-cp config/enforcer-rules.yaml.example config/enforcer-rules.yaml
+# 2. Link the Hermes plugin
+mkdir -p ~/.hermes/plugins/hermes-enforcer
+cp hermes-plugin/* ~/.hermes/plugins/hermes-enforcer/
 
-# Run the tests
-python -m pytest tests/
+# 3. Set up rules
+cp config/enforcer-rules.yaml.example ~/.hermes/workspace/hermes-enforcer-rules.md
 
-# See it in action
-bash examples/demo.sh
+# 4. Enable in Hermes config (~/.hermes/config.yaml)
+# plugins:
+#   enabled:
+#     - hermes-enforcer
+
+# 5. Restart
+systemctl --user restart hermes-gateway
 ```
 
-### Configuration
+**Full integration guide**: [docs/HERMES-INTEGRATION.md](docs/HERMES-INTEGRATION.md)
 
-Define rules in `config/enforcer-rules.yaml`:
+---
+
+## How It Works
+
+```
+User sends message
+    │
+    ▼
+pre_llm_call hook ── Classifies message, activates matching rules
+    │                   └─ Rule state + tracking initialized
+    ▼
+Agent calls a tool
+    │
+    ▼
+pre_tool_call hook ── Checks active rules:
+    │                   ① Tool satisfies a rule's prerequisite? → Mark done, allow
+    │                   ② All prerequisites met? → Allow
+    │                   ③ Prerequisites unmet, tool in block list? → 🚫 BLOCK
+    ▼
+Allow / Block
+```
+
+### Rule Types
+
+| Type | Description |
+|:-----|:------------|
+| **`always_block`** | Hard block: agent cannot proceed without meeting conditions |
+| **`require_tools`** | Agent MUST call specific tools with specific args first |
+| **`only_block_tools`** | Block specific tools when triggered (empty = block all) |
+| **`transform`** | Regex-based output transformation (emoji → kaomoji, etc.) |
+| **`track_turns`** | Inject context warnings after N turns |
+
+### Example Rule
 
 ```yaml
 rules:
@@ -132,20 +83,10 @@ rules:
       keywords: ["rm", "shutdown", "drop table"]
     conditions:
       require_tools:
-        - terminal
+        - name: terminal
           args_contains: ["--dry-run"]
     block_message: "Sensitive commands require --dry-run verification first."
 ```
-
----
-
-## Comparison
-
-| Solution | Layer of Control | Scope | Mechanism |
-|----------|-----------------|-------|-----------|
-| Guardrails AI | Output | Response structure | Prompt templates + validators |
-| LlamaGuard | Input/Output | Content safety | Classification model |
-| **AgentGuard** | **Tool-call** | **Agent behavior** | **Rule engine + Router + PID** |
 
 ---
 
@@ -153,39 +94,43 @@ rules:
 
 ```
 agent-guardrails/
-├── config/                   # Rule definitions (sanitized)
-│   ├── enforcer-rules.yaml
-│   └── routing-table.yaml
-├── docs/                     # Architecture & design docs
-├── bin/                      # Executable scripts
-├── tests/                    # Unit & integration tests
-├── examples/                 # Usage scenarios
-└── benchmark/                # Performance comparisons
+├── agentguard/                   # pip-installable engine package
+│   ├── __init__.py               # Package entry point
+│   └── enforcer.py               # Core rule engine (~500 lines)
+├── hermes-plugin/                # Hermes Agent plugin bridge
+│   ├── __init__.py               # Thin bridge with register(ctx)
+│   └── plugin.yaml               # Plugin manifest
+├── config/
+│   ├── enforcer-rules.yaml.example   # Example rule definitions
+│   └── routing-table.yaml.example    # Example domain routing
+├── docs/
+│   └── HERMES-INTEGRATION.md     # Full Hermes setup guide
+├── pyproject.toml
+├── CHANGELOG.md
+└── README.md
 ```
 
 ---
 
-## When to Use AgentGuard
+## Comparison
 
-- Your LLM agent has **tool access** (shell, browser, API calls)
-- You need **behavioral constraints** beyond prompt engineering
-- You want a **self-healing system** that learns from mistakes
-- You need **audit trails** for compliance or debugging
-- You're building **multi-agent systems** with shared tools
+| Solution | Layer | Scope | Mechanism |
+|:---------|:------|:------|:----------|
+| Guardrails AI | Output | Response structure | Prompt templates + validators |
+| LlamaGuard | Input/Output | Content safety | Classification model |
+| **AgentGuard** | **Tool-call** | **Agent behavior** | **Rule engine + hooks** |
 
 ---
+
+## Requirements
+
+- Python 3.10+
+- [Hermes Agent](https://github.com/NousResearch/hermes-agent) (for plugin mode)
+- PyYAML (for rule parsing)
 
 ## License
 
 MIT
-
----
-
-## Related Work
-
-- [Guardrails AI](https://github.com/guardrails-ai/guardrails) — Structured output guardrails
-- [Consilium](https://github.com/openadapt-ai/consilium) — Multi-model cross-validation
-- [Guidance](https://github.com/guidance-ai/guidance) — Structured generation
 
 ---
 

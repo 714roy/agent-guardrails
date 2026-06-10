@@ -1,0 +1,11 @@
+name: hermes-enforcer
+version: "1.0.0"
+description: >
+  AgentGuard behavior rule engine for Hermes Agent.
+  Pre_llm_call + pre_tool_call double-hook enforcement.
+  Rules defined in config YAML — no Python coding needed.
+author: "AgentGuard"
+hooks:
+  - pre_llm_call
+  - pre_tool_call
+  - transform_llm_output

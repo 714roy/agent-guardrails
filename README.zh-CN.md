@@ -1,137 +1,107 @@
 # AgentGuard
 
-> 基于规则引擎的 LLM Agent 行为治理系统。
-> 不是调 prompt——是系统工程。
+> **LLM Agent 行为规则引擎 —— 工具调用层行为治理。**
+> 基于 [Hermes Agent](https://github.com/NousResearch/hermes-agent) 的插件系统。
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
+
+AgentGuard 在**工具调用层**做行为约束——不是改 prompt，不是过滤输出，而是在 Agent 调用工具的那一刻拦截检查。它作为 **Hermes Agent 插件**运行，注册三个生命周期钩子：`pre_llm_call`、`pre_tool_call`、`transform_llm_output`。
 
 ---
 
-## 为什么要 AgentGuard
+## 快速开始（Hermes Agent）
 
-大模型 Agent 能力很强，但不稳定。给了工具和自主权之后，它们会：
+```bash
+# 1. 安装引擎
+pip install agentguard
 
-- 未经确认就执行危险的 shell 命令
-- 工具调用顺序搞错、用错上下文
-- 忘记之前的决策，重复犯同样的错
-- 时间长了行为模式越来越不可控
+# 2. 链接 Hermes 插件
+mkdir -p ~/.hermes/plugins/hermes-enforcer
+cp hermes-plugin/* ~/.hermes/plugins/hermes-enforcer/
 
-现有的防御方案（Guardrails AI、LlamaGuard）都在 **输入/输出层面** 做约束——管的是 Agent 说什么，不是它 **做什么**。
+# 3. 配置规则
+cp config/enforcer-rules.yaml.example ~/.hermes/workspace/hermes-enforcer-rules.md
 
-**AgentGuard 不一样。它在工具调用层面** 做行为治理——通过规则引擎、领域路由和 PID 闭环控制，约束 Agent 的行为边界，而不是约束它的回答内容。
+# 4. 在 Hermes 配置中启用 (~/.hermes/config.yaml)
+# plugins:
+#   enabled:
+#     - hermes-enforcer
+
+# 5. 重启 Gateway
+systemctl --user restart hermes-gateway
+```
+
+**完整集成指南**：[docs/HERMES-INTEGRATION.md](docs/HERMES-INTEGRATION.md)
 
 ---
 
-## 架构
+## 工作原理
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                       AgentGuard                          │
-│                                                            │
-│  ┌─────────────┐  ┌──────────┐  ┌───────────────┐        │
-│  │  Enforcer    │  │  Router  │  │  Quality       │        │
-│  │  规则引擎     │◄─┤  Skill   │◄─┤  Gate (PID)   │        │
-│  │  (N条规则)    │  │  路由表   │  │  闭环控制      │        │
-│  └──────┬──────┘  └────┬─────┘  └──────┬────────┘        │
-│         │              │     ↗         │                  │
-│         │              │  Feedback     │                  │
-│         │              │  Channel      │                  │
-│         ▼              ▼               ▼                  │
-│  ┌─────────────────────────────────────────────┐         │
-│  │         LLM Agent 行为层                      │         │
-│  │  工具调用 / 推理 / 输出 / 记忆 / 路由          │         │
-│  └─────────────────────┬───────────────────────┘         │
-│                        │                                  │
-│                        ▼                                  │
-│  ┌─────────────────────────────────────────────┐         │
-│  │         审计日志 (Audit Trail)               │         │
-│  │  记录：规则触发 / 路由决策 / 拦截事件          │         │
-│  └─────────────────────────────────────────────┘         │
-└──────────────────────────────────────────────────────────┘
+用户发消息
+    │
+    ▼
+pre_llm_call 钩子 ── 识别消息话题，激活匹配的规则
+    │                   └─ 规则状态初始化
+    ▼
+Agent 调用工具
+    │
+    ▼
+pre_tool_call 钩子 ── 检查活跃规则：
+    │                   ① 工具满足了某规则的前置条件？→ 标记已满足，放行
+    │                   ② 所有前置条件已满足？→ 放行
+    │                   ③ 条件未满足，工具在拦截名单里？→ 🚫 拦截
+    ▼
+放行 / 拦截
 ```
 
-### 三大核心组件
+### 规则类型
 
-#### 1️⃣ Enforcer — 规则引擎
+| 类型 | 说明 |
+|:-----|:------|
+| **`always_block`** | 硬拦截：条件不满足前所有工具调用都被拦住 |
+| **`require_tools`** | Agent 必须先调指定工具（含参数约束） |
+| **`only_block_tools`** | 仅拦截特定工具（空列表=拦截所有） |
+| **`transform`** | 正则替换输出转换（emoj → 颜文字等） |
+| **`track_turns`** | 对话轮数超过阈值时注入上下文提醒 |
 
-YAML 定义的行为规则，在 Agent 调用系统工具之前拦截、要求或转换行为。
-
-- **关键词触发 + 条件匹配** → 灵活定义规则生效场景
-- **规则类型**：硬拦截（`always_block`）、工具前置依赖（`require_tools`）、工具禁用（`only_block_tools`）、输出转换（`transform`）
-- **优先级机制**：多条规则同时触发时按 priority 裁决
-- **热加载**：修改规则文件无需重启 Agent
+### 规则示例
 
 ```yaml
 rules:
   - name: sensitive-command
+    enabled: true
     priority: 20
     triggers:
       keywords: ["rm", "shutdown", "drop table"]
     conditions:
       require_tools:
-        - terminal
+        - name: terminal
           args_contains: ["--dry-run"]
     block_message: "敏感命令请先加 --dry-run 验证"
 ```
 
-#### 2️⃣ Router — 领域路由表
-
-将自然语言输入的关键词映射到专业 Skill 和工作流，无需复杂的意图分类模型。
-
-- 关键词 → Skill 自动匹配（覆盖 13+ 领域）
-- 零配置扩展——加一行就是新领域
-- 冷启动默认 fallback 兜底
-
-#### 3️⃣ Quality Gate — PID 闭环控制
-
-把控制理论用到 Agent 行为纠偏上，灵感来自 PID 控制器：
-
-| 环节 | 触发条件 | 动作 |
-|:----|:---------|:-----|
-| **P** (比例) | 单次错误 | 即时修正当前输出 |
-| **I** (积分) | 同类错误 2+ 次 | 固化为规则/记忆 |
-| **D** (微分) | 错误加速增多 | 触发全面审计+重置 |
-
-集成 **Consilium** 多模型交叉验证作为外部审计。
-
-### 支撑系统
-
-- **审计日志**：每次规则触发、路由决策、PID 动作都记录上下文，可追溯调试
-- **反馈通道**：Router → PID / PID → Router 双向信号，驱动系统持续进化
-
 ---
 
-## 快速开始
+## 目录结构
 
-```bash
-# 克隆仓库
-git clone https://github.com/714roy/agent-guardrails.git
-cd agent-guardrails
-
-# 配置规则
-cp config/enforcer-rules.yaml.example config/enforcer-rules.yaml
-
-# 运行测试
-python -m pytest tests/
-
-# 查看示例
-bash examples/demo.sh
 ```
-
-### 配置示例
-
-`config/enforcer-rules.yaml` 中定义规则：
-
-```yaml
-rules:
-  - name: production-deploy-guard
-    enabled: true
-    priority: 20
-    triggers:
-      keywords: ["deploy", "release", "production"]
-    conditions:
-      require_tools:
-        - terminal
-          args_contains: ["--dry-run"]
-    block_message: "生产部署需先 --dry-run 验证"
+agent-guardrails/
+├── agentguard/                   # pip 可安装的引擎包
+│   ├── __init__.py               # 包入口
+│   └── enforcer.py               # 核心规则引擎（~500 行）
+├── hermes-plugin/                # Hermes Agent 插件桥接
+│   ├── __init__.py               # 薄桥接层 + register(ctx)
+│   └── plugin.yaml               # 插件清单
+├── config/
+│   ├── enforcer-rules.yaml.example   # 规则配置示例
+│   └── routing-table.yaml.example    # 路由表示例
+├── docs/
+│   └── HERMES-INTEGRATION.md     # Hermes 集成指南（英文）
+├── pyproject.toml
+├── CHANGELOG.md
+└── README.md
 ```
 
 ---
@@ -139,34 +109,22 @@ rules:
 ## 方案对比
 
 | 方案 | 约束层级 | 场景 | 特点 |
-|:----|:---------|:-----|:----|
+|:----|:---------|:-----|:-----|
 | Guardrails AI | 输出层 | 结构化输出 | prompt 级约束 |
 | LlamaGuard | 输入/输出层 | 内容安全 | 分类模型 |
-| **AgentGuard** | **工具调用层** | **Agent 行为治理** | **规则引擎 + 路由 + PID 闭环** |
+| **AgentGuard** | **工具调用层** | **Agent 行为治理** | **规则引擎 + 三钩子** |
 
 ---
 
-## 适用场景
+## 依赖
 
-- 你的 LLM Agent **有工具权限**（shell、浏览器、API 调用）
-- 你需要的不仅是**改 prompt 就能解决**的行为约束
-- 你希望系统 **自己从错误中学习**
-- 你需要**可追溯的审计日志**用于合规或调试
-- 你在构建**多 Agent 系统**，需要统一的行为管控
-
----
+- Python 3.10+
+- [Hermes Agent](https://github.com/NousResearch/hermes-agent)（插件模式必须）
+- PyYAML（规则解析）
 
 ## 开源协议
 
 MIT
-
----
-
-## 相关项目
-
-- [Guardrails AI](https://github.com/guardrails-ai/guardrails) — 结构化输出防护
-- [Consilium](https://github.com/openadapt-ai/consilium) — 多模型交叉验证
-- [Guidance](https://github.com/guidance-ai/guidance) — 结构化生成控制
 
 ---
 
