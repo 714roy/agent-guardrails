@@ -1,0 +1,37 @@
+# Personal / Internal
+PROJECT-FRAMEWORK.md
+config/*.local.*
+config/*.secret.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Secrets
+*_key*
+*.env
+credentials*
+**/credentials*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env/
+dist/
+build/
+*.egg-info/
+
+# Agent runtime
+*.log

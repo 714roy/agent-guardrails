@@ -1,0 +1,322 @@
+# ============================================================================
+# AgentGuard — Domain Routing Table
+# ============================================================================
+# Maps natural language topics to specialized skills/workflows.
+# The router matches user input keywords to a domain, then loads the
+# corresponding skill(s) to handle the request.
+#
+# Adding a new route: add one entry with keywords + skills + optional notes.
+# The router automatically picks up new entries on reload.
+# ============================================================================
+
+routing:
+
+  # --------------------------------------------------------------------------
+  # Life Decisions & Career Planning
+  # --------------------------------------------------------------------------
+  - domain: life-decisions
+    keywords:
+      - "career"
+      - "job decision"
+      - "life choice"
+      - "life path"
+      - "which path"
+      - "career plan"
+      - "should I"
+    skills:
+      - analysis-framework
+      - knowledge-base
+    notes: >
+      Load analysis framework first, then search knowledge base for relevant
+      models and cases. Archive results to knowledge base.
+
+  # --------------------------------------------------------------------------
+  # Mental Wellness & Emotional Support
+  # --------------------------------------------------------------------------
+  - domain: mental-wellness
+    keywords:
+      - "anxiety"
+      - "stress"
+      - "mood"
+      - "mental"
+      - "emotion"
+      - "therapy"
+      - "psychology"
+      - "sleep"
+      - "depression"
+    skills:
+      - mental-wellness-profile
+    notes: >
+      Direct response using mental wellness profile for context-aware support.
+      No additional framework needed.
+
+  # --------------------------------------------------------------------------
+  # Creative Writing
+  # --------------------------------------------------------------------------
+  - domain: creative-writing
+    keywords:
+      - "novel"
+      - "writing"
+      - "story"
+      - "chapter"
+      - "plot"
+      - "character"
+      - "creative"
+      - "fiction"
+      - "draft"
+      - "worldbuilding"
+    skills:
+      - creative-writing-core
+      - novel-workspace
+    notes: >
+      Load core writing system + workspace management for structured output.
+      Supports genre-specific guidance.
+
+  # --------------------------------------------------------------------------
+  # News & Current Events
+  # --------------------------------------------------------------------------
+  - domain: current-events
+    keywords:
+      - "news"
+      - "what happened"
+      - "today"
+      - "headlines"
+      - "current events"
+      - "market news"
+      - "briefing"
+    skills:
+      - daily-briefing
+    notes: >
+      Generate structured daily briefing. Briefing delivery configurable to
+      preferred messaging platform.
+
+  # --------------------------------------------------------------------------
+  # Investment & Finance
+  # --------------------------------------------------------------------------
+  - domain: investment
+    keywords:
+      - "stock"
+      - "fund"
+      - "investment"
+      - "market"
+      - "portfolio"
+      - "finance"
+      - "trading"
+      - "A-share"
+    skills:
+      - analysis-framework
+    notes: >
+      Load analysis framework + fetch financial data. Cross-reference with
+      knowledge base for patterns and precedents.
+
+  # --------------------------------------------------------------------------
+  # Technical Analysis & Code Review
+  # --------------------------------------------------------------------------
+  - domain: technical-analysis
+    keywords:
+      - "code review"
+      - "bug"
+      - "debug"
+      - "technical"
+      - "architecture"
+      - "refactor"
+      - "pull request"
+      - "code quality"
+      - "error"
+    skills:
+      - agent-core-docs
+    notes: >
+      Documentation-first approach. Check agent documentation before
+      proposing solutions.
+
+  # --------------------------------------------------------------------------
+  # System Administration & DevOps
+  # --------------------------------------------------------------------------
+  - domain: system-admin
+    keywords:
+      - "server"
+      - "Linux"
+      - "deploy"
+      - "system"
+      - "configuration"
+      - "service"
+      - "daemon"
+      - "cron"
+      - "network"
+      - "container"
+    skills:
+      - system-admin
+      - infrastructure-tools
+    notes: >
+      System administration + infrastructure skill combo. Covering deploy,
+      config, monitoring, and troubleshooting.
+
+  # --------------------------------------------------------------------------
+  # Learning & Skill Development
+  # --------------------------------------------------------------------------
+  - domain: learning
+    keywords:
+      - "study"
+      - "learn"
+      - "read"
+      - "book"
+      - "course"
+      - "tutorial"
+      - "practice"
+      - "flashcard"
+      - "memory"
+      - "knowledge"
+    skills:
+      - learning-methods
+      - flashcard-system
+      - reading-tracker
+      - knowledge-base
+    notes: >
+      Multi-skill path: learning methods → flashcard creation → reading
+      tracking → knowledge base search.
+
+  # --------------------------------------------------------------------------
+  # Mental Models & Knowledge Retrieval
+  # --------------------------------------------------------------------------
+  - domain: mental-models
+    keywords:
+      - "mental model"
+      - "thinking model"
+      - "concept"
+      - "framework"
+      - "principle"
+      - "philosophy"
+      - "cognitive"
+      - "bias"
+    skills:
+      - knowledge-base
+      - analysis-framework
+    notes: >
+      Knowledge base first (concept page → synthesis guide → original source),
+      then analysis framework for structured interpretation.
+
+  # --------------------------------------------------------------------------
+  # Pets
+  # --------------------------------------------------------------------------
+  - domain: pets
+    keywords:
+      - "cat"
+      - "dog"
+      - "pet"
+      - "veterinary"
+      - "breed"
+      - "feeding"
+      - "pet care"
+    skills: []
+    notes: >
+      No specialized skill. Direct response based on general knowledge.
+      Species and breed specific advice when requested.
+
+  # --------------------------------------------------------------------------
+  # Collectibles & Hobbies
+  # --------------------------------------------------------------------------
+  - domain: hobbies
+    keywords:
+      - "figure"
+      - "model kit"
+      - "garage kit"
+      - "collectible"
+      - "hobby"
+      - "handcraft"
+    skills: []
+    notes: >
+      No specialized skill. Direct response based on general knowledge.
+
+  # --------------------------------------------------------------------------
+  # Knowledge Management
+  # --------------------------------------------------------------------------
+  - domain: knowledge-management
+    keywords:
+      - "knowledge base"
+      - "note"
+      - "Obsidian"
+      - "wiki"
+      - "document"
+      - "organization"
+      - "archive"
+      - "retrieval"
+      - "knowledge graph"
+    skills:
+      - knowledge-base
+      - knowledge-sync
+    notes: >
+      Knowledge base + sync system for reading, writing, and organizing
+      content. Archival and retrieval oriented.
+
+  # --------------------------------------------------------------------------
+  # Health & Wellness
+  # --------------------------------------------------------------------------
+  - domain: health
+    keywords:
+      - "health"
+      - "exercise"
+      - "diet"
+      - "medication"
+      - "physical"
+      - "medical"
+      - "wellness"
+      - "sleep quality"
+    skills:
+      - mental-wellness-profile
+    notes: >
+      Use wellness profile for context-aware health tracking and advice.
+
+  # --------------------------------------------------------------------------
+  # System Configuration & Troubleshooting
+  # --------------------------------------------------------------------------
+  - domain: system-config
+    keywords:
+      - "CLI"
+      - "configure"
+      - "setup"
+      - "troubleshoot"
+      - "install"
+      - "error log"
+      - "diagnostic"
+      - "debugging"
+    skills:
+      - system-admin
+      - system-features
+    notes: >
+      System admin + features guide for config, install, and troubleshooting
+      workflows.
+
+  # --------------------------------------------------------------------------
+  # New Project / Skill Development
+  # --------------------------------------------------------------------------
+  - domain: project-creation
+    keywords:
+      - "new project"
+      - "new skill"
+      - "create module"
+      - "start project"
+      - "boilerplate"
+    skills:
+      - skill-factory
+    notes: >
+      Load skill creation system. Search for existing solutions before
+      creating new ones (see no-wheel-reinvent rule).
+
+  # --------------------------------------------------------------------------
+  # Open Source Discovery & Research
+  # --------------------------------------------------------------------------
+  - domain: open-source-research
+    keywords:
+      - "find tool"
+      - "search project"
+      - "open source"
+      - "GitHub"
+      - "library"
+      - "package"
+      - "alternative"
+      - "research"
+    skills:
+      - skill-discovery
+    notes: >
+      Search GitHub and web for existing projects before proposing new
+      development.
