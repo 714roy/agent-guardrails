@@ -186,3 +186,7 @@ MIT
 - [Guardrails AI](https://github.com/guardrails-ai/guardrails) — Structured output guardrails
 - [Consilium](https://github.com/openadapt-ai/consilium) — Multi-model cross-validation
 - [Guidance](https://github.com/guidance-ai/guidance) — Structured generation
+
+---
+
+[🇨🇳 中文版](README.zh-CN.md)
