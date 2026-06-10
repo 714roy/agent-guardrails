@@ -1,80 +1,75 @@
 # AgentGuard
 
-> **Tool-call level behavior governance for LLM agents.**
-> Built for [Hermes Agent](https://github.com/NousResearch/hermes-agent).
+> **LLM Agent 行为规则引擎 —— 工具调用层行为治理。**
+> 基于 [Hermes Agent](https://github.com/NousResearch/hermes-agent) 的插件系统。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
 
-AgentGuard enforces behavior at the **tool-call layer** — not at the prompt/output
-layer like traditional guardrail solutions. When your agent tries to call a tool,
-AgentGuard checks: *Does this user message activate any rules? Are the prerequisites
-met?* If not, the tool call is blocked until requirements are satisfied.
-
-It works as a **Hermes Agent plugin** with three hooks:
-`pre_llm_call`, `pre_tool_call`, and `transform_llm_output`.
+AgentGuard 在**工具调用层**做行为约束——不是改 prompt，不是过滤输出，而是在 Agent 调用工具的那一刻拦截检查。它作为 **Hermes Agent 插件**运行，注册三个生命周期钩子：`pre_llm_call`、`pre_tool_call`、`transform_llm_output`。
 
 ---
 
-## Quick Start (Hermes Agent)
+## 安装
 
-📖 **Beginner Guide**: [docs/BEGINNER-GUIDE.md](docs/BEGINNER-GUIDE.md) (10-minute setup)
+把下面这段话**直接复制发给你的 Hermes Agent**，它就会自动装好：
 
-```bash
-# 1. Install the engine
-pip install https://github.com/714roy/agent-guardrails/releases/download/v1.0.0/agentguard-1.0.0-py3-none-any.whl
+> 去 GitHub 装 agent-guardrails 规则引擎插件，执行：
+> 1. `pip install https://github.com/714roy/agent-guardrails/releases/download/v1.0.0/agentguard-1.0.0-py3-none-any.whl`
+> 2. `git clone https://github.com/714roy/agent-guardrails.git ~/agent-guardrails && mkdir -p ~/.hermes/plugins/hermes-enforcer && cp -r ~/agent-guardrails/hermes-plugin/* ~/.hermes/plugins/hermes-enforcer/ && cp ~/agent-guardrails/config/enforcer-rules.yaml.example ~/.hermes/workspace/hermes-enforcer-rules.md`
+> 3. 在 `~/.hermes/config.yaml` 的 `plugins.enabled` 里加上 `hermes-enforcer`
+> 4. 重启 Gateway
 
-# 2. Link the Hermes plugin
-mkdir -p ~/.hermes/plugins/hermes-enforcer
-cp hermes-plugin/* ~/.hermes/plugins/hermes-enforcer/
+👉 **小白教程**：[docs/BEGINNER-GUIDE.md](docs/BEGINNER-GUIDE.md)（10 分钟逐步说明）
+👉 **集成指南**：[docs/HERMES-INTEGRATION.md](docs/HERMES-INTEGRATION.md)
 
-# 3. Set up rules
-cp config/enforcer-rules.yaml.example ~/.hermes/workspace/hermes-enforcer-rules.md
+## 用法
 
-# 4. Enable in Hermes config (~/.hermes/config.yaml)
-# plugins:
-#   enabled:
-#     - hermes-enforcer
+装好即用，**零配置**。默认规则已涵盖常见行为约束：
 
-# 5. Restart
-systemctl --user restart hermes-gateway
-```
+| 能力 | 效果 |
+|:-----|:-----|
+| **规则拦截** | 用户触发关键词后自动激活规则，条件不满足前工具调用被拦住 |
+| **输出转换** | 自动替换 LLM 回复内容（如 emoji → 颜文字） |
+| **热重载** | 修改 `~/.hermes/workspace/hermes-enforcer-rules.md`，下一轮对话自动生效 |
 
-**Full integration guide**: [docs/HERMES-INTEGRATION.md](docs/HERMES-INTEGRATION.md)
+修改规则文件即可自定义行为，语法见 [`config/enforcer-rules.yaml.example`](config/enforcer-rules.yaml.example)。
+
+**禁用方法：** 启动前设环境变量 `AGENTGUARD_DISABLE=1`
 
 ---
 
-## How It Works
+## 工作原理
 
 ```
-User sends message
+用户发消息
     │
     ▼
-pre_llm_call hook ── Classifies message, activates matching rules
-    │                   └─ Rule state + tracking initialized
+pre_llm_call 钩子 ── 识别消息话题，激活匹配的规则
+    │                   └─ 规则状态初始化
     ▼
-Agent calls a tool
+Agent 调用工具
     │
     ▼
-pre_tool_call hook ── Checks active rules:
-    │                   ① Tool satisfies a rule's prerequisite? → Mark done, allow
-    │                   ② All prerequisites met? → Allow
-    │                   ③ Prerequisites unmet, tool in block list? → 🚫 BLOCK
+pre_tool_call 钩子 ── 检查活跃规则：
+    │                   ① 工具满足了某规则的前置条件？→ 标记已满足，放行
+    │                   ② 所有前置条件已满足？→ 放行
+    │                   ③ 条件未满足，工具在拦截名单里？→ 🚫 拦截
     ▼
-Allow / Block
+放行 / 拦截
 ```
 
-### Rule Types
+### 规则类型
 
-| Type | Description |
-|:-----|:------------|
-| **`always_block`** | Hard block: agent cannot proceed without meeting conditions |
-| **`require_tools`** | Agent MUST call specific tools with specific args first |
-| **`only_block_tools`** | Block specific tools when triggered (empty = block all) |
-| **`transform`** | Regex-based output transformation (emoji → kaomoji, etc.) |
-| **`track_turns`** | Inject context warnings after N turns |
+| 类型 | 说明 |
+|:-----|:------|
+| **`always_block`** | 硬拦截：条件不满足前所有工具调用都被拦住 |
+| **`require_tools`** | Agent 必须先调指定工具（含参数约束） |
+| **`only_block_tools`** | 仅拦截特定工具（空列表=拦截所有） |
+| **`transform`** | 正则替换输出转换（emoj → 颜文字等） |
+| **`track_turns`** | 对话轮数超过阈值时注入上下文提醒 |
 
-### Example Rule
+### 规则示例
 
 ```yaml
 rules:
@@ -87,26 +82,26 @@ rules:
       require_tools:
         - name: terminal
           args_contains: ["--dry-run"]
-    block_message: "Sensitive commands require --dry-run verification first."
+    block_message: "敏感命令请先加 --dry-run 验证"
 ```
 
 ---
 
-## Project Structure
+## 目录结构
 
 ```
 agent-guardrails/
-├── agentguard/                   # pip-installable engine package
-│   ├── __init__.py               # Package entry point
-│   └── enforcer.py               # Core rule engine (~500 lines)
-├── hermes-plugin/                # Hermes Agent plugin bridge
-│   ├── __init__.py               # Thin bridge with register(ctx)
-│   └── plugin.yaml               # Plugin manifest
+├── agentguard/                   # pip 可安装的引擎包
+│   ├── __init__.py               # 包入口
+│   └── enforcer.py               # 核心规则引擎（~500 行）
+├── hermes-plugin/                # Hermes Agent 插件桥接
+│   ├── __init__.py               # 薄桥接层 + register(ctx)
+│   └── plugin.yaml               # 插件清单
 ├── config/
-│   ├── enforcer-rules.yaml.example   # Example rule definitions
-│   └── routing-table.yaml.example    # Example domain routing
+│   ├── enforcer-rules.yaml.example   # 规则配置示例
+│   └── routing-table.yaml.example    # 路由表示例
 ├── docs/
-│   └── HERMES-INTEGRATION.md     # Full Hermes setup guide
+│   └── HERMES-INTEGRATION.md     # Hermes 集成指南（英文）
 ├── pyproject.toml
 ├── CHANGELOG.md
 └── README.md
@@ -114,26 +109,26 @@ agent-guardrails/
 
 ---
 
-## Comparison
+## 方案对比
 
-| Solution | Layer | Scope | Mechanism |
-|:---------|:------|:------|:----------|
-| Guardrails AI | Output | Response structure | Prompt templates + validators |
-| LlamaGuard | Input/Output | Content safety | Classification model |
-| **AgentGuard** | **Tool-call** | **Agent behavior** | **Rule engine + hooks** |
+| 方案 | 约束层级 | 场景 | 特点 |
+|:----|:---------|:-----|:-----|
+| Guardrails AI | 输出层 | 结构化输出 | prompt 级约束 |
+| LlamaGuard | 输入/输出层 | 内容安全 | 分类模型 |
+| **AgentGuard** | **工具调用层** | **Agent 行为治理** | **规则引擎 + 三钩子** |
 
 ---
 
-## Requirements
+## 依赖
 
 - Python 3.10+
-- [Hermes Agent](https://github.com/NousResearch/hermes-agent) (for plugin mode)
-- PyYAML (for rule parsing)
+- [Hermes Agent](https://github.com/NousResearch/hermes-agent)（插件模式必须）
+- PyYAML（规则解析）
 
-## License
+## 开源协议
 
 MIT
 
 ---
 
-[🇨🇳 中文版](README.zh-CN.md)
+[🇬🇧 English](README.en.md)
