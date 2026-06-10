@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_RULES_PATH = os.path.join(
     os.environ.get("HERMES_HOME", os.path.expanduser("~/.hermes")),
     "workspace",
-    "hermes-enforcer-rules.md",
+    "agent-guardrails-rules.md",
 )
 _RULES_PATH = os.environ.get("AGENTGUARD_RULES", _DEFAULT_RULES_PATH)
 
