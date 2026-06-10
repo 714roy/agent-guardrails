@@ -18,6 +18,8 @@ It works as a **Hermes Agent plugin** with three hooks:
 
 ## Quick Start (Hermes Agent)
 
+📖 **Beginner Guide**: [docs/BEGINNER-GUIDE.md](docs/BEGINNER-GUIDE.md) (10-minute setup)
+
 ```bash
 # 1. Install the engine
 pip install agentguard
