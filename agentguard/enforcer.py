@@ -385,17 +385,33 @@ def on_pre_tool_call(
     state["tool_call_count"] = state.get("tool_call_count", 0) + 1
     tool_count = state["tool_call_count"]
 
-    # Step 1: always_block (stop/abort rules)
+    # Step 1: always_block — block non-required tools only until all prereqs met
     if state.get("always_block", False):
-        state["blocked_tools"] = blocked
-        logger.info(
-            "ALWAYS_BLOCK: blocked tool=%s for session=%s",
-            tool_name, session_id,
+        # If ALL active rules' requirements are met, clear always_block
+        all_met = all(
+            _all_requirements_met(rule_name, state.get("satisfied", {}))
+            for rule_name, rule in active_rules.items()
         )
-        return {
-            "action": "block",
-            "message": "⛔ Stop command detected. All tool calls blocked. Send a new message to continue.",
-        }
+        if all_met:
+            state["always_block"] = False
+            logger.info("ALWAYS_BLOCK cleared: all requirements met")
+        else:
+            # Check if this tool is required by any active rule (don't block required tools)
+            is_required = False
+            for r_name, r_rule in active_rules.items():
+                if _is_required_tool(tool_name, r_rule):
+                    is_required = True
+                    break
+            if not is_required:
+                state["blocked_tools"] = blocked
+                logger.info(
+                    "ALWAYS_BLOCK: blocked tool=%s for session=%s",
+                    tool_name, session_id,
+                )
+                return {
+                    "action": "block",
+                    "message": "⛔ Tool blocked: prerequisites not met. Call required tools first.",
+                }
 
     # Step 2: max_consecutive_calls (multi-step throttle)
     for rule_name, rule in active_rules.items():

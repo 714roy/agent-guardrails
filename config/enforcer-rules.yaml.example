@@ -1,27 +1,9 @@
-# ============================================================================
-# AgentGuard — Enforcer Rule Definitions
-# ============================================================================
-# This is the core rule engine configuration. Each rule defines when and how
-# the agent's behavior should be constrained, guided, or transformed.
-#
-# Rule types:
-#   always_block       — Hard block: the agent cannot proceed without meeting conditions
-#   require_tools      — The agent MUST call specific tools before proceeding
-#   only_block_tools   — Block specific tools when this rule is triggered
-#   transform          — Transform the agent's output (regex replacement)
-#   track_turns        — Inject context warnings after N turns
-#
-# Adding a new rule: give it a unique `name`, set `priority`, and define its
-# triggers + conditions + actions.
-# ============================================================================
-
+---
 rules:
 
   # ---------------------------------------------------------------------------
   # 1. Analysis Framework Enforcement
   # ---------------------------------------------------------------------------
-  # When the user asks an analysis-type question, the agent must load the
-  # analysis framework skill + knowledge base before answering.
   - name: analysis-framework
     enabled: true
     priority: 10
@@ -31,14 +13,10 @@ rules:
     triggers:
       keywords:
         - "analyze"
-        - "what do you think"
-        - "why"
-        - "how would you"
         - "evaluate"
         - "judge"
         - "predict"
         - "trend"
-        - "understand"
         - "interpret"
       mode: any
     conditions:
@@ -51,218 +29,16 @@ rules:
     always_block: true
     block_message: >
       Analysis questions require loading analysis-framework + knowledge-base
-      skills first. See config/routing-table.yaml for domain routing.
+      skills first.
 
   # ---------------------------------------------------------------------------
-  # 2. Dependency Map Check
+  # 2. Sensitive Command Guard
   # ---------------------------------------------------------------------------
-  # Before any cross-cutting changes (rename, delete, restructure), the agent
-  # must verify the dependency map to understand impact scope.
-  - name: dep-map-check
+  - name: sensitive-command
     enabled: true
     priority: 9
     description: >
-      Cross-cutting changes (rename/delete/skill restructure) must check the
-      dependency map first.
-    triggers:
-      keywords:
-        - "rename"
-        - "migrate"
-        - "delete skill"
-        - "restructure"
-        - "cross-cutting"
-      mode: any
-    conditions:
-      require_tools:
-        - name: read_file
-          args_contains: ["DEPENDENCY_MAP"]
-    only_block_tools:
-      - skill_manage
-      - write_file
-      - patch
-    block_message: >
-      Cross-cutting changes: first read DEPENDENCY_MAP.md to verify impact,
-      then synchronize it after changes.
-
-  # ---------------------------------------------------------------------------
-  # 3. No Wheel Reinvention
-  # ---------------------------------------------------------------------------
-  # Before creating anything new, search for existing solutions first.
-  - name: no-wheel-reinvent
-    enabled: true
-    priority: 8
-    description: >
-      Before creating new skills, tools, or projects, search for existing
-      solutions first. No reinventing the wheel.
-    triggers:
-      keywords:
-        - "create"
-        - "new"
-        - "build"
-        - "implement"
-        - "design"
-        - "develop"
-      mode: any
-    conditions:
-      require_tools:
-        - name: web_search
-        - name: search_files
-          args_contains: ["$SKILL_DIR"]
-    only_block_tools:
-      - write_file
-      - skill_manage
-    block_message: >
-      Before creating anything new, search for existing solutions first:
-      web_search + search existing skills.
-
-  # ---------------------------------------------------------------------------
-  # 4. Reasoning Force
-  # ---------------------------------------------------------------------------
-  # Logic/constraint problems MUST use formal verification tools (Z3, Prolog)
-  # instead of manual reasoning.
-  - name: reasoning-force
-    enabled: true
-    priority: 10
-    description: >
-      Logic puzzles, constraint satisfaction, and matching problems MUST use
-      formal verification tools (Z3/Prolog) instead of manual reasoning.
-    triggers:
-      keywords:
-        - "logic"
-        - "constraint"
-        - "matching"
-        - "which"
-        - "combination"
-        - "permutation"
-        - "deduction"
-      mode: any
-    conditions:
-      require_tools:
-        - name: mcp_chiasmus_chiasmus_formalize
-        - name: mcp_chiasmus_chiasmus_verify
-    only_block_tools:
-      - terminal
-    block_message: >
-      Logic/constraint problems: use formal verification tools
-      (chiasmus: Z3/Prolog) instead of bare reasoning.
-
-  # ---------------------------------------------------------------------------
-  # 5. Memory Verification
-  # ---------------------------------------------------------------------------
-  # When referencing past conversation context, use session search instead of
-  # relying on the model's context window.
-  - name: memory-verify
-    enabled: true
-    priority: 7
-    description: >
-      When referencing past conversation content, use session search to
-      verify, instead of relying on context window memory.
-    triggers:
-      keywords:
-        - "earlier"
-        - "previously"
-        - "last time"
-        - "as mentioned"
-        - "you said before"
-        - "we discussed"
-      mode: any
-    conditions:
-      require_tools:
-        - name: session_search
-    only_block_tools:
-      - terminal
-      - write_file
-      - web_search
-    block_message: >
-      When referencing past conversations, use session_search to verify
-      before making claims.
-
-  # ---------------------------------------------------------------------------
-  # 6. Persistent Memory
-  # ---------------------------------------------------------------------------
-  # Long-term memory should use the dedicated memory API (unlimited capacity)
-  # instead of the built-in memory tool (limited to ~2200 chars).
-  - name: persistent-memory
-    enabled: true
-    priority: 5
-    description: >
-      Long-term memory storage should use the dedicated memory service
-      (unlimited capacity), not the built-in memory tool.
-    triggers:
-      keywords:
-        - "remember"
-        - "save"
-        - "store"
-        - "archive"
-        - "log"
-        - "note"
-        - "decision"
-      mode: any
-    conditions:
-      require_tools:
-        - name: terminal
-          args_contains: ["save-memory.sh"]
-    only_block_tools:
-      - memory
-    block_message: >
-      Use the dedicated memory service for persistence:
-      $AGENT_HOME/scripts/save-memory.sh "content" --type fact|decision
-
-  # ---------------------------------------------------------------------------
-  # 7. Multi-Step Throttle
-  # ---------------------------------------------------------------------------
-  # After N consecutive tool calls without a response, the agent must stop and
-  # report progress to the user.
-  - name: multi-step-throttle
-    enabled: true
-    priority: 10
-    description: >
-      After N consecutive tool calls, the agent must report progress to the
-      user before continuing.
-    triggers: {}  # Always active
-    conditions:
-      require_tools: []
-    only_block_tools: []
-    max_consecutive_calls: 3
-    block_message: >
-      Multi-step throttle: {count} consecutive tool calls. Report progress
-      to the user before continuing.
-
-  # ---------------------------------------------------------------------------
-  # 8. Stop Command
-  # ---------------------------------------------------------------------------
-  # User stop commands cancel all subsequent tool calls in the current turn.
-  - name: stop-command
-    enabled: true
-    priority: 100
-    description: >
-      User stop commands block all remaining tool calls in the current turn.
-    triggers:
-      keywords:
-        - "stop"
-        - "cancel"
-        - "hold"
-        - "wait"
-        - "enough"
-      mode: any
-    conditions:
-      require_tools: []
-    only_block_tools: []
-    always_block: true
-    block_message: >
-      Stop command detected. All tool calls in this turn are blocked.
-      Send a new message to continue.
-
-  # ---------------------------------------------------------------------------
-  # 9. Sensitive CLI Verification
-  # ---------------------------------------------------------------------------
-  # Destructive shell commands must be verified with --dry-run first.
-  - name: cli-verify
-    enabled: true
-    priority: 9
-    description: >
-      Destructive shell commands must be verified with --dry-run or a
-      confirmation step first.
+      Destructive shell commands must be verified with --dry-run first.
     triggers:
       keywords:
         - "delete"
@@ -276,65 +52,105 @@ rules:
     conditions:
       require_tools:
         - name: terminal
-          args_contains: ["--dry-run", "-n", "confirm"]
+          args_contains: ["--dry-run"]
     only_block_tools:
       - terminal
     block_message: >
-      Sensitive operations: verify with --dry-run or -n before executing.
+      Sensitive commands: verify with --dry-run before executing.
 
   # ---------------------------------------------------------------------------
-  # 10. Gateway Restart Notification
+  # 3. No Wheel Reinvention
   # ---------------------------------------------------------------------------
-  # After a gateway restart, the agent must notify the user.
-  - name: gateway-restart-notify
-    enabled: true
-    priority: 6
-    description: >
-      After gateway restart, the agent must notify the user that the system
-      is back online.
-    triggers:
-      keywords:
-        - "restart gateway"
-        - "gateway restart"
-        - "restart proxy"
-      mode: any
-    conditions:
-      require_tools:
-        - name: send_message
-    only_block_tools: []
-    block_message: >
-      Gateway restarted. Notify the user of the new status.
-
-  # ---------------------------------------------------------------------------
-  # 11. No Token Truncation
-  # ---------------------------------------------------------------------------
-  # When the user explicitly forbids truncation, block any terminal command
-  # that contains "..." truncation markers on sensitive values.
-  - name: no-token-truncate
+  - name: no-wheel-reinvent
     enabled: true
     priority: 8
     description: >
-      When the user forbids truncation, block terminal commands containing
-      "..." truncation on API keys, tokens, or sensitive values.
+      Before creating new tools or projects, search for existing solutions first.
     triggers:
       keywords:
-        - "no truncation"
-        - "don't truncate"
-        - "full value"
-        - "keep complete"
+        - "create"
+        - "new"
+        - "build"
+        - "implement"
+        - "design"
       mode: any
     conditions:
-      require_tools: []
+      require_tools:
+        - name: web_search
+        - name: search_files
+    only_block_tools:
+      - write_file
+      - skill_manage
+    block_message: >
+      Before creating new, search for existing solutions first: web_search.
+
+  # ---------------------------------------------------------------------------
+  # 4. Reasoning Force
+  # ---------------------------------------------------------------------------
+  - name: reasoning-force
+    enabled: true
+    priority: 10
+    description: >
+      Logic/constraint problems MUST use formal verification tools (Z3/Prolog).
+    triggers:
+      keywords:
+        - "logic"
+        - "constraint"
+        - "matching"
+        - "deduction"
+      mode: any
+    conditions:
+      require_tools:
+        - name: mcp_chiasmus_chiasmus_formalize
+        - name: mcp_chiasmus_chiasmus_verify
     only_block_tools:
       - terminal
     block_message: >
-      Truncation blocked: check terminal commands for "..." truncation
-      markers on sensitive values.
+      Logic problems: use formal verification tools instead of bare reasoning.
 
   # ---------------------------------------------------------------------------
-  # 12. Output Transformation: Emoji → Kaomoji
+  # 5. Memory Verification
   # ---------------------------------------------------------------------------
-  # Transforms common emoji to kaomoji (text-based emoticons) in agent output.
+  - name: memory-verify
+    enabled: true
+    priority: 7
+    description: >
+      When referencing past conversation content, use session search to verify.
+    triggers:
+      keywords:
+        - "earlier"
+        - "previously"
+        - "last time"
+        - "we discussed"
+      mode: any
+    conditions:
+      require_tools:
+        - name: session_search
+    only_block_tools:
+      - terminal
+      - write_file
+    block_message: >
+      Reference past conversations via session_search before making claims.
+
+  # ---------------------------------------------------------------------------
+  # 6. Multi-Step Throttle
+  # ---------------------------------------------------------------------------
+  - name: multi-step-throttle
+    enabled: true
+    priority: 10
+    description: >
+      After N consecutive tool calls, the agent must report progress.
+    triggers: {}
+    conditions:
+      require_tools: []
+    only_block_tools: []
+    max_consecutive_calls: 3
+    block_message: >
+      Multi-step throttle: report progress to the user before continuing.
+
+  # ---------------------------------------------------------------------------
+  # 7. Transform: Emoji → Kaomoji
+  # ---------------------------------------------------------------------------
   - name: emoji-transform
     enabled: true
     priority: 1
@@ -348,54 +164,28 @@ rules:
           replacement: "(^_^)"
         - pattern: "😅"
           replacement: "(^_^;)"
-        - pattern: "✅"
-          replacement: "(｀・ω・´)b"
-        - pattern: "❌"
-          replacement: "(´；ω；｀)"
 
   # ---------------------------------------------------------------------------
-  # 13. Image Analysis Routing
+  # 8. Turn Warning
   # ---------------------------------------------------------------------------
-  # When the user sends an image, use the dedicated vision analysis script
-  # instead of the built-in vision tool (which may not be supported by the
-  # current model).
-  - name: image-analysis
-    enabled: true
-    priority: 7
-    description: >
-      When the user sends an image, use the vision analysis script instead
-      of the built-in vision tool.
-    triggers:
-      keywords:
-        - "user sent an image"
-        - "image you couldn't see"
-        - "vision_analyze"
-        - "image_cache"
-      mode: any
-    conditions:
-      require_tools:
-        - name: terminal
-          args_contains: ["vision-analyze.sh"]
-    only_block_tools:
-      - vision_analyze
-    block_message: >
-      Use the vision analysis script for images:
-      $AGENT_HOME/bin/vision-analyze.sh <path> [prompt]
-
-  # ---------------------------------------------------------------------------
-  # 14. Context Turn Warning
-  # ---------------------------------------------------------------------------
-  # Injects a warning message when the conversation exceeds N turns,
-  # suggesting a fresh session to avoid context window degradation.
   - name: context-turn-warning
     enabled: true
     priority: 1
     description: >
-      Warns the user when conversation exceeds threshold turns, suggesting a
-      fresh session.
+      Warns the user when conversation exceeds threshold turns.
     triggers: {}
     track_turns:
       warn_at: [30, 50, 70, 90]
       message: >
-        ⚠️ Conversation at {turns} turns. Consider starting a fresh session
-        to avoid context degradation.
+        ⚠️ Conversation at {turns} turns. Consider starting a fresh session.
+
+routing_table: |
+  ▸ **Domain Routing Table (example)**
+  ▸ Life decisions → analysis-framework + knowledge-base
+  ▸ Technical/code → agent-core-docs
+  ▸ System admin → system-admin + infrastructure-tools
+  ▸ Learning/study → learning-methods + flashcard-system
+  ▸ News/current events → daily-briefing
+  ▸ Pets/hobbies → direct response (no specialized skill)
+  ▸ Unmatched → fallback to general agent
+---
