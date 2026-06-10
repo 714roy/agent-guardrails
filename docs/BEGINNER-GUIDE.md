@@ -33,7 +33,7 @@
 打开终端，复制粘贴这行：
 
 ```bash
-pip install https://github.com/714roy/agent-guardrails/releases/download/v1.0.0/agentguard-1.0.0-py3-none-any.whl
+pip install https://github.com/714roy/agent-guardrails/releases/download/v1.1.0/agentguard-1.1.0-py3-none-any.whl
 ```
 
 等它跑完，显示 `Successfully installed agentguard` 就行了。
@@ -208,7 +208,7 @@ A: 用这个网站验证你的规则文件：https://www.yamllint.com/
 
 想了解更多规则类型、路由表、输出转换等高级功能，看完整文档：
 - [docs/HERMES-INTEGRATION.md](HERMES-INTEGRATION.md)（英文，讲得详细）
-- [config/enforcer-rules.yaml.example](../config/enforcer-rules.yaml.example)（更多规则示例）
+- [config/enforcer-rules.md.example](../config/enforcer-rules.md.example)（更多规则示例）
 
 ---
 

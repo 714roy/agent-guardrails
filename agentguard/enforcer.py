@@ -9,7 +9,7 @@ Architecture:
   pre_tool_call   → before each tool call, check active rule conditions, block if unmet
   transform_output → after LLM generates reply, apply regex transforms
 
-Rules are defined in YAML (see config/enforcer-rules.yaml.example).
+Rules are defined in YAML (see config/enforcer-rules.md.example).
 """
 
 from __future__ import annotations

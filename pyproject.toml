@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentguard"
-version = "1.0.0"
+version = "1.1.0"
 description = "LLM Agent behavior rule engine — tool-call level governance"
 readme = "README.md"
 license = {text = "MIT"}

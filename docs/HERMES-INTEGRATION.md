@@ -18,7 +18,7 @@ AgentGuard registers three hooks into Hermes Agent's pipeline:
 ### 1. Install the engine
 
 ```bash
-pip install https://github.com/714roy/agent-guardrails/releases/download/v1.0.0/agentguard-1.0.0-py3-none-any.whl
+pip install https://github.com/714roy/agent-guardrails/releases/download/v1.1.0/agentguard-1.1.0-py3-none-any.whl
 ```
 
 Or install from source:
@@ -48,7 +48,7 @@ ln -s $(pwd)/agent-guardrails/hermes-plugin/plugin.yaml ~/.hermes/plugins/agent-
 Copy the example rules to Hermes workspace:
 
 ```bash
-cp agent-guardrails/config/enforcer-rules.yaml.example ~/.hermes/workspace/agent-guardrails-rules.md
+cp agent-guardrails/config/enforcer-rules.md.example ~/.hermes/workspace/agent-guardrails-rules.md
 ```
 
 Or use the `rules.md` format (YAML frontmatter):
@@ -116,7 +116,7 @@ journalctl --user -u hermes-gateway --since "5 min ago" | grep agentguard
 
 ### Rule format
 
-See [config/enforcer-rules.yaml.example](../config/enforcer-rules.yaml.example) for a
+See [config/enforcer-rules.md.example](../config/enforcer-rules.md.example) for a
 complete reference. Each rule supports:
 
 - **`triggers.keywords`** — user message keywords to activate the rule

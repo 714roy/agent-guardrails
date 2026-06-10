@@ -22,14 +22,14 @@ It works as a **Hermes Agent plugin** with three hooks:
 
 ```bash
 # 1. Install the engine
-pip install https://github.com/714roy/agent-guardrails/releases/download/v1.0.0/agentguard-1.0.0-py3-none-any.whl
+pip install https://github.com/714roy/agent-guardrails/releases/download/v1.1.0/agentguard-1.1.0-py3-none-any.whl
 
 # 2. Link the Hermes plugin
 mkdir -p ~/.hermes/plugins/agent-guardrails
 cp hermes-plugin/* ~/.hermes/plugins/agent-guardrails/
 
 # 3. Set up rules
-cp config/enforcer-rules.yaml.example ~/.hermes/workspace/agent-guardrails-rules.md
+cp config/enforcer-rules.md.example ~/.hermes/workspace/agent-guardrails-rules.md
 
 # 4. Enable in Hermes config (~/.hermes/config.yaml)
 # plugins:
@@ -103,7 +103,7 @@ agent-guardrails/
 │   ├── __init__.py               # Thin bridge with register(ctx)
 │   └── plugin.yaml               # Plugin manifest
 ├── config/
-│   ├── enforcer-rules.yaml.example   # Example rule definitions
+│   ├── enforcer-rules.md.example   # Example rule definitions
 │   └── routing-table.yaml.example    # Example domain routing
 ├── docs/
 │   └── HERMES-INTEGRATION.md     # Full Hermes setup guide

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0 (2026-06-10)
+
+### Changed
+- Renamed plugin/hermes-enforcer → agent-guardrails (all references)
+- Default rules file path: hermes-enforcer-rules.md → agent-guardrails-rules.md
+- Example file: enforcer-rules.yaml.example → enforcer-rules.md.example (clearer format)
+- Fixed install URL to v1.1.0 release
+
 ## 1.0.0 (2026-06-10)
 
 ### Major Release — Now with Actual Code!
