@@ -150,6 +150,43 @@ result = on_pre_llm_call(
 # result contains routing context or None
 ```
 
+## YAML Pitfalls ⚠️
+
+### Escape sequences in double-quoted strings
+
+YAML double-quoted strings support only specific escape sequences (`\n`, `\t`, `\\`, `\"`, `\uXXXX`, etc.).
+Characters that look "escaped" but aren't valid will **silently break** the entire frontmatter parse,
+causing **all rules to be ignored** with no runtime error.
+
+| ❌ Wrong | ✅ Correct | Reason |
+|:---------|:-----------|:-------|
+| `replacement: "(´；ω；\`)"` | `replacement: "(´；ω；\`)"` | `` \` `` is not a valid YAML escape; backticks don't need escaping |
+
+**To verify your rules parse correctly:**
+```bash
+cd ~/.hermes/workspace && python3 -c "
+import yaml
+with open('agent-guardrails-rules.md') as f:
+    data = yaml.safe_load(f)
+print(f'OK: {len(data.get(\"rules\", []))} rules loaded')
+"
+```
+
+If this prints 0 rules, check your YAML frontmatter for escape issues.
+
+### Default rules file path
+
+The plugin reads `$HERMES_HOME/workspace/agent-guardrails-rules.md` by default.
+If your rules file has a **different filename**, create a symlink or set `AGENTGUARD_RULES`:
+
+```bash
+# Option A: Symlink (easiest)
+ln -s your-rules-file.md ~/.hermes/workspace/agent-guardrails-rules.md
+
+# Option B: Environment variable (set in ~/.hermes/.env)
+AGENTGUARD_RULES=/home/user/.hermes/workspace/your-rules-file.md
+```
+
 ## Troubleshooting
 
 **Plugin doesn't load**
@@ -159,8 +196,29 @@ result = on_pre_llm_call(
 
 **Rules not applying**
 - Verify the rules file exists at the expected path
-- Check rule syntax with: `python3 -c "import yaml; yaml.safe_load(open('rules.md'))"`
+- Check YAML syntax with the verification command above — a parse error **silently yields 0 rules**
+- Check Gateway logs for parse errors: `journalctl --user -u hermes-gateway -n 100 | grep -i "Failed to parse"`
 - Ensure rules have `enabled: true`
+- Make sure the rules file name matches the default (`agent-guardrails-rules.md`) or set `AGENTGUARD_RULES`
+- Test in the Hermes venv:
+  ```bash
+  source ~/.hermes/hermes-agent/.venv/bin/activate
+  python3 -c "from agentguard.enforcer import load_rules; print(f'{len(load_rules())} rules')"
+  ```
+
+**Transform rules not working (emoji → kaomoji, etc.)**
+- Same root cause as above: if YAML frontmatter fails to parse, **all rules** (including transforms) are silently disabled
+- Check for invalid escape sequences in `replacement:` fields
+- Verify the rule is enabled and transform mode is `regex_replace`
+- Quick test:
+  ```bash
+  source ~/.hermes/hermes-agent/.venv/bin/activate
+  python3 -c "
+  from agentguard.enforcer import on_transform_output
+  r = on_transform_output(response_text='test 😅', session_id='test')
+  print('Transformed:', repr(r if r else '(no change)'))
+  "
+  ```
 
 **AGENTGUARD_DISABLE not working**
 - Must be set **before** Gateway starts (in `~/.hermes/.env` or systemd override)
