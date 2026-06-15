@@ -32,16 +32,19 @@ pip install -e .
 ### 2. Link the Hermes plugin
 
 ```bash
+# Assuming you cloned to ~/agent-guardrails/
 # Create the plugin directory
 mkdir -p ~/.hermes/plugins/agent-guardrails
 
-# Copy plugin files
-cp agent-guardrails/hermes-plugin/* ~/.hermes/plugins/agent-guardrails/
+# Copy plugin files (note: source dir is agentguard-plugin, not hermes-plugin)
+cp ~/agent-guardrails/agentguard-plugin/* ~/.hermes/plugins/agent-guardrails/
 
-# Or symlink for easy updates
-ln -s $(pwd)/agent-guardrails/hermes-plugin/__init__.py ~/.hermes/plugins/agent-guardrails/__init__.py
-ln -s $(pwd)/agent-guardrails/hermes-plugin/plugin.yaml ~/.hermes/plugins/agent-guardrails/plugin.yaml
+# Or symlink for easy updates (avoids re-copying on pull)
+ln -s ~/agent-guardrails/agentguard-plugin/__init__.py ~/.hermes/plugins/agent-guardrails/__init__.py
+ln -s ~/agent-guardrails/agentguard-plugin/plugin.yaml ~/.hermes/plugins/agent-guardrails/plugin.yaml
 ```
+
+> **💡 Note**: The plugin directory name under `~/.hermes/plugins/` is arbitrary — `agent-guardrails` is just a convention. You can name it anything (e.g. `hermes-enforcer`), just match it in Step 4's config.
 
 ### 3. Create the rules file
 
