@@ -107,6 +107,75 @@ journalctl --user -u hermes-gateway --since "5 min ago" | grep agentguard
 # Expected: AgentGuard loaded: 7 rules, disable with AGENTGUARD_DISABLE=1
 ```
 
+## Manual Plugin Installation in Hermes
+
+For users who want to understand what each step does, or need to install without the one-liner:
+
+### Plugin directory structure
+
+Hermes loads plugins from `~/.hermes/plugins/<plugin-name>/`. Each plugin needs exactly two files:
+
+| File | Purpose |
+|:-----|:--------|
+| `plugin.yaml` | Manifest — declares plugin name, hooks, and toolset |
+| `__init__.py` | Entry point — must expose a `register(ctx)` function |
+
+The directory name (e.g. `agent-guardrails`, `hermes-enforcer`) is what you'll reference in config. You can name it anything.
+
+### Step-by-step
+
+```bash
+# 1. Create plugin directory (pick any name)
+mkdir -p ~/.hermes/plugins/agent-guardrails
+
+# 2. Copy the two plugin files in
+#    From a cloned repo:
+cp ~/agent-guardrails/agentguard-plugin/* ~/.hermes/plugins/agent-guardrails/
+
+#    Or from a downloaded package:
+cp /path/to/plugin/* ~/.hermes/plugins/agent-guardrails/
+
+# 3. Verify the files are in place
+ls ~/.hermes/plugins/agent-guardrails/
+# Expected: __init__.py  plugin.yaml
+```
+
+### 4. Enable in config
+
+Add the plugin name (matching the directory name) to `~/.hermes/config.yaml`:
+
+```yaml
+plugins:
+  enabled:
+    - agent-guardrails     # ← matches the directory name
+```
+
+### 5. Restart Gateway
+
+```bash
+systemctl --user restart hermes-gateway
+```
+
+### 6. Verify
+
+```bash
+journalctl --user -u hermes-gateway -n 30 | grep -i "agentguard\|plugin"
+# Expected: "AgentGuard loaded: N rules"
+```
+
+If you see `0 rules`, your rules file YAML has a syntax error — check the [YAML Pitfalls](#yaml-pitfalls-️) section.
+
+### Quick rule file validation (no restart needed)
+
+```bash
+cd ~/.hermes/workspace && python3 -c "
+import yaml
+with open('agent-guardrails-rules.md') as f:
+    data = yaml.safe_load(f)
+print(f'{len(data.get(\"rules\", []))} rules loaded')
+"
+```
+
 ## Configuration
 
 ### Environment variables
