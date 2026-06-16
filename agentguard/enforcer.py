@@ -49,6 +49,18 @@ _RULES_PATH = os.environ.get("AGENTGUARD_RULES", _DEFAULT_RULES_PATH)
 _turn_state: dict[str, dict] = {}
 _turn_counters: dict[str, int] = {}
 
+# Tools that should never be blocked by always_block (deadlock prevention)
+_ALWAYS_ALLOWED_TOOLS = {
+    "skill_view", "skills_list", "skill_manage",
+    "read_file", "write_file", "patch", "search_files",
+    "terminal", "execute_code",
+    "session_search", "mcp_agentmemory_memory_recall",
+    "web_search", "web_extract",
+}
+
+# Max consecutive always_block blocks before auto-clear (deadlock escape)
+_ALWAYS_BLOCK_DEADLOCK_LIMIT = 5
+
 # Rule cache — hot-reloads on file change, no restart needed
 _rules_cache_mtime: float = 0
 _rules_cache: list[dict] = []
@@ -270,6 +282,7 @@ def on_pre_llm_call(
         "blocked_tools": {},
         "tool_call_count": 0,
         "always_block": False,
+        "always_block_consecutive": 0,  # deadlock escape counter
     }
     _turn_state[session_id] = state
 
@@ -308,10 +321,22 @@ def on_pre_llm_call(
             req_tools = rule.get("conditions", {}).get("require_tools", [])
             state["satisfied"][rule_name] = {"_defs": req_tools}
             state["blocked_tools"][rule_name] = 0
-            logger.info(
-                "Rule '%s' activated for session %s (msg: %.60s)",
-                rule_name, session_id, user_message,
-            )
+
+            # 详细日志：stop-command 单独记录匹配细节
+            if rule_name == "stop-command":
+                triggers = rule.get("triggers", {})
+                kws = triggers.get("keywords", [])
+                matched_kws = [kw for kw in kws if kw.lower() in user_message.lower()]
+                logger.warning(
+                    "STOP_COMMAND triggered! session=%s matched_kws=%s "
+                    "msg_full=%r msg_hex=%r",
+                    session_id, matched_kws, user_message, user_message.encode("utf-8").hex(),
+                )
+            else:
+                logger.info(
+                    "Rule '%s' activated for session %s (msg: %.60s)",
+                    rule_name, session_id, user_message,
+                )
 
             if rule.get("always_block", False):
                 state["always_block"] = True
@@ -396,22 +421,42 @@ def on_pre_tool_call(
             state["always_block"] = False
             logger.info("ALWAYS_BLOCK cleared: all requirements met")
         else:
-            # Check if this tool is required by any active rule (don't block required tools)
-            is_required = False
-            for r_name, r_rule in active_rules.items():
-                if _is_required_tool(tool_name, r_rule):
-                    is_required = True
-                    break
-            if not is_required:
-                state["blocked_tools"] = blocked
-                logger.info(
-                    "ALWAYS_BLOCK: blocked tool=%s for session=%s",
-                    tool_name, session_id,
+            # ~~~ Deadlock escape: if too many consecutive blocks, auto-clear ~~~
+            consec = state.get("always_block_consecutive", 0)
+            if consec >= _ALWAYS_BLOCK_DEADLOCK_LIMIT:
+                state["always_block"] = False
+                logger.warning(
+                    "ALWAYS_BLOCK DEADLOCK ESCAPE: cleared after %d consecutive "
+                    "blocks for session=%s", consec, session_id,
                 )
-                return {
-                    "action": "block",
-                    "message": "⛔ Tool blocked: prerequisites not met. Call required tools first.",
-                }
+                # Fall through to normal tool processing
+            else:
+                # ~~~ Always-allowed tools (never blocked by always_block) ~~~
+                if tool_name in _ALWAYS_ALLOWED_TOOLS:
+                    logger.info(
+                        "ALWAYS_BLOCK: allowed always-allowed tool=%s (consec=%d) "
+                        "for session=%s", tool_name, consec, session_id,
+                    )
+                    state["always_block_consecutive"] = consec  # don't increment
+                    # Fall through to normal tool processing
+                else:
+                    # Check if this tool is required by any active rule (don't block required tools)
+                    is_required = False
+                    for r_name, r_rule in active_rules.items():
+                        if _is_required_tool(tool_name, r_rule):
+                            is_required = True
+                            break
+                    if not is_required:
+                        state["blocked_tools"] = blocked
+                        state["always_block_consecutive"] = consec + 1
+                        logger.info(
+                            "ALWAYS_BLOCK: blocked tool=%s (consec=%d) for session=%s",
+                            tool_name, consec, session_id,
+                        )
+                        return {
+                            "action": "block",
+                            "message": "⛔ Tool blocked: prerequisites not met. Call required tools first.",
+                        }
 
     # Step 2: max_consecutive_calls (multi-step throttle)
     for rule_name, rule in active_rules.items():

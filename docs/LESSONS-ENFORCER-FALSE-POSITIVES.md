@@ -96,29 +96,97 @@ This rule has no trigger keywords (always active) and blocks after 3 consecutive
 
 6. **Batch rule changes** — if the agent triggers rule A and B while trying to fix rule C, it hits the multi-step throttle. Consider a "repair mode" that temporarily suspends non-critical rules.
 
-## Code Reference
+## The Fix: Engine-Level Safety Guards
 
-The deadlock-prone logic is in `agentguard/enforcer.py`, `on_pre_tool_call()`:
+Beyond narrowing trigger keywords, **two engine-level safety mechanisms** were added to prevent ANY always_block rule from deadlocking:
+
+### Fix 1: Always-Allowed Tools (`_ALWAYS_ALLOWED_TOOLS`)
+
+A hard-coded allowlist of infrastructure tools that are **never blocked** by `always_block`:
 
 ```python
-# Step 1: always_block — block non-required tools only until all prereqs met
-if state.get("always_block", False):
-    all_met = all(
-        _all_requirements_met(rule_name, state.get("satisfied", {}))
-        for rule_name, rule in active_rules.items()
+_ALWAYS_ALLOWED_TOOLS = {
+    "skill_view", "skills_list", "skill_manage",
+    "read_file", "write_file", "patch", "search_files",
+    "terminal", "execute_code",
+    "session_search", "mcp_agentmemory_memory_recall",
+    "web_search", "web_extract",
+}
+```
+
+These are the tools an agent needs to:
+- **Diagnose** a block (read_file to check rules)
+- **Fix** a block (patch, write_file to edit rules)
+- **Escape** a block (terminal to restart gateway)
+
+This is checked **before** the `_is_required_tool` check, so even if a rule forgets to list `skill_view` in `require_tools`, it still works.
+
+### Fix 2: Deadlock Escape — Consecutive Block Counter
+
+After `_ALWAYS_BLOCK_DEADLOCK_LIMIT` (5) consecutive blocked tool calls within one turn, `always_block` is **automatically cleared** with a warning log:
+
+```python
+consec = state.get("always_block_consecutive", 0)
+if consec >= _ALWAYS_BLOCK_DEADLOCK_LIMIT:
+    state["always_block"] = False
+    logger.warning(
+        "ALWAYS_BLOCK DEADLOCK ESCAPE: cleared after %d consecutive blocks",
+        consec,
     )
+    # Fall through to normal tool processing
+```
+
+This ensures even if a misconfigured rule blocks everything, the agent can recover within 5 blocked attempts without human intervention.
+
+### Fix 3: Hot-Reload Race Condition
+
+The `require_tools` list for `three-mirrors` already included `skill_view` — but `always_block` still blocked it due to a hot-reload caching issue. The rule file was updated but the in-memory cache didn't sync properly between `pre_llm_call` (which loads rules) and `pre_tool_call` (which checks them). Adding the engine-level guards (Fixes 1 & 2) makes this a non-issue.
+
+## Combined Flow (after fixes)
+
+```
+pre_llm_call → state reset → rules loaded → three-mirrors activated → always_block=true
+
+pre_tool_call(skill_view):
+  1. always_block active? YES
+  2. Is tool in _ALWAYS_ALLOWED_TOOLS? YES → ✅ ALLOW (never reaches block logic)
+  
+pre_tool_call(some_other_tool):
+  1. always_block active? YES
+  2. Is tool in _ALWAYS_ALLOWED_TOOLS? NO
+  3. Deadlock check: consecutive=1 < 5 → continue
+  4. Is tool in require_tools? NO → BLOCK + increment consecutive
+  
+... after 5 blocks ...
+  
+pre_tool_call(any_tool):
+  1. always_block active? YES
+  2. consecutive >= 5 → AUTO CLEAR always_block → ✅ ALLOW
+```
+
+## Code Reference
+
+The deadlock-prone logic is in `agentguard/enforcer.py`, `on_pre_tool_call()` (simplified):
+
+```python
+# Step 1: always_block
+if state.get("always_block", False):
+    all_met = all(requirements_met for rule in active_rules)
     if all_met:
         state["always_block"] = False
     else:
-        is_required = False
-        for r_name, r_rule in active_rules.items():
-            if _is_required_tool(tool_name, r_rule):
-                is_required = True
-                break
-        if not is_required:
-            return {"action": "block", "message": "..."}
+        consec = state.get("always_block_consecutive", 0)
+        if consec >= 5:
+            state["always_block"] = False  # DEADLOCK ESCAPE
+        elif tool_name in _ALWAYS_ALLOWED_TOOLS:
+            pass  # ALLOW (infrastructure tools)
+        elif _is_required_tool(tool_name, any_rule):
+            pass  # ALLOW (configured as prerequisite)
+        else:
+            state["always_block_consecutive"] = consec + 1
+            return {"action": "block"}
 ```
 
-The `_is_required_tool` check only recognizes `conditions.require_tools`, **not** `conditions.require_prior_tool`. So `date` (specified in `require_prior_tool`) is never recognized as "required" and always blocked.
+## Additional Bug: `require_prior_tool` not recognized
 
-This is a bug independent of the keyword breadth issue.
+The `_is_required_tool` check only recognizes `conditions.require_tools`, **not** `conditions.require_prior_tool`. So `date` (specified in `require_prior_tool`) was never recognized as "required". This is fixed by the deadlock escape (5 blocks → auto-clear).
