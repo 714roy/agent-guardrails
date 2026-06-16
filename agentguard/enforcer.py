@@ -213,7 +213,8 @@ def _all_requirements_met(rule_name: str, satisfied: dict) -> bool:
 
 def _tool_should_block(tool_name: str, rule: dict) -> bool:
     """Check if a tool should be blocked by this rule."""
-    only_block = rule.get("conditions", {}).get("only_block_tools", [])
+    # only_block_tools may be at root level OR under conditions (backward compat)
+    only_block = rule.get("only_block_tools") or rule.get("conditions", {}).get("only_block_tools", [])
     if not only_block:
         return True  # empty list = block all tools
     for pattern in only_block:

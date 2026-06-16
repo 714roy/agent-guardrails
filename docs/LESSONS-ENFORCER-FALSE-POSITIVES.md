@@ -187,6 +187,53 @@ if state.get("always_block", False):
             return {"action": "block"}
 ```
 
-## Additional Bug: `require_prior_tool` not recognized
+## Bug: `only_block_tools` Location Mismatch
 
-The `_is_required_tool` check only recognizes `conditions.require_tools`, **not** `conditions.require_prior_tool`. So `date` (specified in `require_prior_tool`) was never recognized as "required". This is fixed by the deadlock escape (5 blocks → auto-clear).
+### The Problem
+
+`only_block_tools` was declared at the **rule root** level in YAML:
+
+```yaml
+- name: claw-output-archive
+  conditions:
+    require_tools:
+      - name: write_file
+  only_block_tools:          # <-- root level
+    - write_file
+    - terminal
+```
+
+But `_tool_should_block()` looked for it under `conditions`:
+
+```python
+# BROKEN: only_block_tools is at root level, not under conditions
+only_block = rule.get("conditions", {}).get("only_block_tools", [])
+```
+
+This always returned `[]`, and `not []` is `True`, so **every rule with unmet requirements blocked ALL tools** — ignoring the `only_block_tools` list entirely.
+
+### Impact
+
+- `claw-output-archive` blocked `read_file` 32 times in one turn (should only block `write_file` + `terminal`)
+- `cli-verify` blocked `skill_view` 8 times (should only block `terminal`)
+- Every rule effectively had `only_block_tools: []` behavior, causing widespread false-positive blocks
+
+### The Fix
+
+```python
+def _tool_should_block(tool_name: str, rule: dict) -> bool:
+    # Check root level first, then conditions (backward compat)
+    only_block = rule.get("only_block_tools") or rule.get("conditions", {}).get("only_block_tools", [])
+    if not only_block:
+        return True  # empty list = block all tools
+    for pattern in only_block:
+        if fnmatch.fnmatch(tool_name, pattern):
+            return True
+    return False
+```
+
+This reads from the correct location while maintaining backward compatibility with any rules that might have it under `conditions`.
+
+### Lesson
+
+YAML schema and Python code must be validated together. A silently wrong default (`[]` → block all tools) is worse than an explicit crash. Consider adding a unit test that verifies `only_block_tools` is read from the correct key path.
