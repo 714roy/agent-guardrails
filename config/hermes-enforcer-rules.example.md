@@ -289,7 +289,7 @@ rules:
     conditions:
       require_tools:
         - name: write_file
-          args_not_contains: ["/tmp/", "~/.hermes/cron/output", "~/.hermes/audio_cache", "~/.hermes/image_cache", "~/Nutstore Files/工坊/"]
+          args_not_contains: ["/tmp/", "/home/roy/.hermes/cron/output", "/home/roy/.hermes/audio_cache", "/home/roy/.hermes/image_cache", "/home/roy/Nutstore Files/工坊/"]
         - name: terminal
           args_contains: ["/tmp/docgraph", "/tmp/skill", "/tmp/产出"]
           args_not_contains: ["Nutstore Files/工坊"]
@@ -357,25 +357,7 @@ rules:
       之前买过的、推荐过的、踩过的坑都在历史对话里。
       搜到相关内容再回复，避免自相矛盾。
 
-  - name: time-awareness
-    enabled: true
-    priority: 5
-    description: 时间感知强制：所有时间相关输出前必须执行 `date` 查真实时间
-    triggers:
-      keywords: ["点钟", "今天", "明天", "昨晚", "凌晨", "晚上", "早上", "中午", "下午"]
-      mode: any
-    conditions:
-      check_output: true
-      require_prior_tool:
-        - name: terminal
-          command_contains: ["date"]
-      require_recent_seconds: 120
-    only_block_tools: []
-    always_block: true
-    block_message: "🕐 时间感知：涉及时间的输出前请先执行 `date` 查真实时间（当前记忆有误，不可靠）。"
-
 routing_table: |
-  ▸ **路由表（场景关键词 → 加载的 skill）**
 
   ▸=== 命理 / 人生决策 / 心理 ===
   ▸ 人生决策/职业规划/八字/命理 → load three-mirrors + karpathy-llm-wiki → 分析存档到存档库/wiki/分析/
