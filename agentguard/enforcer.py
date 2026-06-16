@@ -48,6 +48,8 @@ _RULES_PATH = os.environ.get("AGENTGUARD_RULES", _DEFAULT_RULES_PATH)
 # }
 _turn_state: dict[str, dict] = {}
 _turn_counters: dict[str, int] = {}
+_turn_state_stale_limit = 30  # max minutes before auto-cleanup
+_turn_state_cleanup_counter = 0  # only clean up every N calls
 
 # Tools that should never be blocked by always_block (deadlock prevention)
 _ALWAYS_ALLOWED_TOOLS = {
@@ -284,8 +286,21 @@ def on_pre_llm_call(
         "tool_call_count": 0,
         "always_block": False,
         "always_block_consecutive": 0,  # deadlock escape counter
+        "is_cron": is_first_turn and "cron" in session_id.lower() or False,
     }
     _turn_state[session_id] = state
+    
+    # Cron session isolation: clear any stale always_block from other sessions
+    # that might have leaked into module-level state
+    if state.get("is_cron"):
+        for sid, s in list(_turn_state.items()):
+            if s.get("always_block", False) and sid != session_id:
+                logger.info(
+                    "CRON ISOLATION: clearing stale always_block from session %s",
+                    sid,
+                )
+                s["always_block"] = False
+                s["always_block_consecutive"] = 0
 
     # Persistent turn counter
     turn_count = _turn_counters.get(session_id, 0) + 1
@@ -391,6 +406,8 @@ def on_pre_tool_call(
     if ENFORCER_DISABLE:
         return None
 
+    _cleanup_stale_states()
+
     session_id = kwargs.get("session_id", kwargs.get("session", task_id))
     if not session_id:
         return None
@@ -413,6 +430,13 @@ def on_pre_tool_call(
 
     # Step 1: always_block — block non-required tools only until all prereqs met
     if state.get("always_block", False):
+        # Cron sessions: skip always_block (cron tasks don't need time checks etc.)
+        if state.get("is_cron"):
+            logger.debug(
+                "CRON BYPASS: skipping always_block for cron session=%s",
+                session_id,
+            )
+            state["always_block"] = False
         # If ALL active rules' requirements are met, clear always_block
         all_met = all(
             _all_requirements_met(rule_name, state.get("satisfied", {}))
@@ -536,3 +560,25 @@ def on_transform_output(
             "TRANSFORM: session=%s applied transforms", session_id,
         )
     return modified
+
+
+def _cleanup_stale_states():
+    """Periodically clean up session states that haven't been used in a while.
+    Prevents stale always_block flags from accumulating across sessions."""
+    global _turn_state_cleanup_counter
+    _turn_state_cleanup_counter += 1
+    if _turn_state_cleanup_counter % 50 != 0:
+        return
+
+    import time
+    now = time.time()
+    stale_ids = []
+    for sid, state in list(_turn_state.items()):
+        # States without a turn_count (never fully initialized) or very old
+        if state.get("turn_count", 0) == 0:
+            stale_ids.append(sid)
+    for sid in stale_ids:
+        _turn_state.pop(sid, None)
+        _turn_counters.pop(sid, None)
+    if stale_ids:
+        logger.info("STATE_CLEANUP: removed %d stale session(s)", len(stale_ids))
